@@ -1,11 +1,13 @@
 import streamlit as st
+import pandas as pd
 from modules import pricing, market_estimation
 
 def main():
     st.title("Business Plan - Hub de Marketplace Crossborder")
-    st.write("Configure os planos e estime o potencial de receita para vendedores LATAM.")
+    st.write("Configure os planos, estime as receitas e analise o payback do investimento.")
 
-    tabs = st.tabs(["Configuração dos Planos", "Estimativa de Mercado", "Sobre"])
+    # Criação das abas
+    tabs = st.tabs(["Configuração dos Planos", "Estimativa de Mercado", "Análise de Payback", "Sobre"])
 
     # Aba 1: Configuração dos Planos
     with tabs[0]:
@@ -53,7 +55,6 @@ def main():
         st.write("Resumo dos Planos:")
         st.json(plan_data)
 
-        # Exemplo de uso do módulo pricing para calcular o preço do plano
         st.subheader("Cálculo do Preço dos Planos")
         for plan in plan_names:
             calculated_price = pricing.calculate_plan_price(plan_data[plan])
@@ -113,7 +114,6 @@ def main():
         
         st.markdown("---")
         
-        # Nova seção: Receita de Assinatura com Peso para cada plano
         st.subheader("Receita de Assinatura dos Planos")
         st.write("Defina o percentual de adesão para cada plano (a soma deve ser igual a 100%).")
         weight_starter = st.number_input("Peso do Plano Starter [%]:", value=40.0, step=1.0, format="%.2f")
@@ -134,32 +134,96 @@ def main():
         st.markdown("### Racional das Estimativas")
         st.write("""
         **Cenário LATAM -> EUA:**
-        - **Número total de sellers:** Quantidade de sellers LATAM que exportam para os EUA. (Valor arbitrário para demonstração; realize pesquisas de mercado para dados reais)
+        - **Número total de sellers:** Quantidade de sellers LATAM que exportam para os EUA.
         - **Taxa de adoção:** Percentual desses sellers que aderirão ao hub.
         - **Ticket Médio:** Valor médio de cada pedido.
-        - **Pedidos por canal:** Permite entender a distribuição dos pedidos entre Amazon, eBay e outros.
+        - **Pedidos por canal:** Distribuição dos pedidos entre os canais.
         
         **Cenário EUA -> LATAM:**
-        - **Número total de sellers:** Sellers dos EUA que exportam para a LATAM. (Valor arbitrário; ajuste conforme dados reais)
+        - **Número total de sellers:** Sellers dos EUA que exportam para a LATAM.
         - **Taxa de adoção:** Percentual de sellers que utilizarão o hub.
         - **Ticket Médio:** Valor médio de cada pedido.
-        - **Pedidos por canal:** Separação por canais (Mercado Livre, Magalu, B2W, Amazon).
+        - **Pedidos por canal:** Distribuição dos pedidos entre os canais.
         
-        **Receita de Assinatura dos Planos:**
-        - **Peso dos Planos:** Percentual de sellers que optarão por cada plano, utilizado para estimar a receita com base no preço calculado para cada plano.
+        **Receita de Assinatura:**
+        - **Peso dos Planos:** Percentual de sellers que optarão por cada plano, usado para estimar a receita com base no preço calculado.
         """)
+        
+        # Armazena a receita de assinatura na sessão para uso na análise de payback
+        st.session_state["subscription_revenue"] = total_subscription_revenue
 
-    # Aba 3: Sobre
+    # Aba 3: Análise de Payback
     with tabs[2]:
+        st.header("Análise de Payback")
+        st.write("Esta análise utiliza as receitas projetadas dos planos (Receita de Assinatura) para estimar em quantos meses o investimento será recuperado.")
+
+        # Obter o investimento via CSV ou entrada manual
+        uploaded_file = st.file_uploader("Faça o upload do CSV com os dados do investimento (coluna 'Investimento')", type="csv")
+        if uploaded_file is not None:
+            df_invest = pd.read_csv(uploaded_file)
+            st.write("Dados do Investimento:")
+            st.dataframe(df_invest)
+            if "Investimento" in df_invest.columns:
+                total_investment = df_invest["Investimento"].sum()
+                st.write("Investimento Total: R$", total_investment)
+            else:
+                st.error("A coluna 'Investimento' não foi encontrada no CSV.")
+                total_investment = st.number_input("Insira o investimento total manualmente (R$):", value=0.0)
+        else:
+            st.info("Faça o upload do arquivo CSV ou insira o investimento manualmente.")
+            total_investment = st.number_input("Insira o investimento total (R$):", value=0.0)
+
+        # Utiliza a receita projetada dos planos (caso já esteja calculada)
+        if "subscription_revenue" in st.session_state:
+            monthly_revenue = st.session_state["subscription_revenue"]
+            st.write(f"Receita mensal projetada (dos planos): R$ {monthly_revenue:,.2f}")
+        else:
+            st.info("Receita de assinatura não disponível. Insira o valor manualmente.")
+            monthly_revenue = st.number_input("Receita Recorrente Mensal (R$):", value=50000.0, step=1000.0, format="%.2f")
+        
+        # Permite definir uma taxa de crescimento (opcional)
+        growth_rate = st.number_input("Taxa de Crescimento Mensal (%) (Ex: 0 para sem crescimento):", value=0.0, step=0.1, format="%.2f")
+
+        # Botão para calcular o payback com base nas receitas projetadas
+        if st.button("Calcular Payback"):
+            months = []
+            monthly_revenues = []
+            cumulative_revenues = []
+
+            cumulative = -total_investment  # Começamos com o valor negativo do investimento
+            month = 0
+            # Simula até 60 meses ou até que o acumulado seja >= 0
+            while month < 60 and cumulative < 0:
+                months.append(month)
+                if month == 0:
+                    current_revenue = monthly_revenue
+                else:
+                    current_revenue = monthly_revenues[-1] * (1 + growth_rate / 100)
+                monthly_revenues.append(current_revenue)
+                cumulative += current_revenue
+                cumulative_revenues.append(cumulative)
+                month += 1
+
+            df_payback = pd.DataFrame({
+                "Mês": months,
+                "Receita Mensal (R$)": monthly_revenues,
+                "Receita Acumulada (R$)": cumulative_revenues
+            })
+            st.dataframe(df_payback)
+
+            if cumulative >= 0:
+                payback_month = df_payback[df_payback["Receita Acumulada (R$)"] >= 0].iloc[0]["Mês"]
+                st.success(f"Payback alcançado no mês: {int(payback_month)}")
+            else:
+                st.warning("Payback não alcançado em 60 meses.")
+
+    # Aba 4: Sobre
+    with tabs[3]:
         st.header("Sobre")
         st.write(
-            "Este sistema foi desenvolvido para auxiliar na criação de um business plan para um hub de marketplace crossborder. \n\n"
-            "Os números de sellers utilizados nas estimativas são arbitrários e servem apenas como exemplo. Recomendamos realizar "
-            "pesquisas de mercado para obter dados reais e ajustar os parâmetros conforme a realidade do setor.\n\n"
-            "O sistema permite configurar planos de cobrança com variáveis ajustáveis, estimar o potencial de receita com base em dois cenários de mercado e calcular a receita de assinatura levando em conta o share de adesão para cada plano."
+            "Este sistema foi desenvolvido para auxiliar na criação de um business plan para um hub de marketplace crossborder.\n\n"
+            "Você pode configurar planos de cobrança com variáveis ajustáveis, estimar o potencial de receita em diferentes cenários e analisar o payback do investimento utilizando as receitas projetadas dos planos."
         )
 
 if __name__ == '__main__':
     main()
-
-
