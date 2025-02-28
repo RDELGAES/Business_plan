@@ -13,8 +13,9 @@ def main():
     with tabs[0]:
         st.header("Planos de Cobrança")
         st.write(
-            "Ajuste as variáveis de cada plano. Além dos parâmetros básicos, os campos abaixo são opcionais "
-            "para complementar o modelo de cobrança (ex.: número de pedidos por mês, ticket médio e percentual da venda)."
+            "Ajuste as variáveis de cada plano. Além dos parâmetros básicos, os campos opcionais "
+            "permitirão complementar o modelo de cobrança, como número de pedidos, ticket médio, "
+            "percentual da venda e preço por pedido."
         )
 
         plan_names = ["Starter", "Growth", "Enterprise"]
@@ -40,6 +41,9 @@ def main():
             sale_percentage = st.number_input(
                 f"Percentual da Venda por Pedido ({plan}) (opcional) [%]", value=0.0, step=1.0, format="%.2f", key=f"{plan}_percentage"
             )
+            order_price = st.number_input(
+                f"Preço por Pedido ({plan}) (opcional) [em R$]", value=0.0, step=10.0, format="%.2f", key=f"{plan}_order_price"
+            )
 
             plan_data[plan] = {
                 "Taxa Fixa": fixed_fee,
@@ -47,7 +51,8 @@ def main():
                 "Marketplaces Integrados": num_marketplaces,
                 "Número de Pedidos/Mês": num_orders,
                 "Ticket Médio": avg_ticket,
-                "Percentual Venda": sale_percentage
+                "Percentual Venda": sale_percentage,
+                "Preço por Pedido": order_price
             }
             st.write("Configuração do plano:", plan_data[plan])
         
@@ -155,7 +160,7 @@ def main():
     # Aba 3: Análise de Payback
     with tabs[2]:
         st.header("Análise de Payback")
-        st.write("Esta análise utiliza as receitas projetadas dos planos (Receita de Assinatura) para estimar em quantos meses o investimento será recuperado.")
+        st.write("Esta análise utiliza as receitas projetadas dos planos para estimar em quantos meses o investimento será recuperado.")
 
         # Obter o investimento via CSV ou entrada manual
         uploaded_file = st.file_uploader("Faça o upload do CSV com os dados do investimento (coluna 'Investimento')", type="csv")
@@ -227,3 +232,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
