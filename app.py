@@ -1,14 +1,15 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import json, os
 from modules import pricing, market_estimation
 
 def main():
     st.title("Business Plan - Hub de Marketplace Crossborder")
-    st.write("Configure os planos, estime o mercado, analise os custos e o breakeven da operação.")
+    st.write("Configure os planos, estime o mercado, analise os custos, o breakeven e salve seus cenários.")
 
-    # Criação das abas
-    tabs = st.tabs(["Configuração dos Planos", "Estimativa de Mercado", "Custos & Breakeven", "Sobre"])
+    # Criação das abas (5 abas: 1: Planos, 2: Mercado, 3: Custos & Breakeven, 4: Sobre, 5: Cenários Salvos)
+    tabs = st.tabs(["Configuração dos Planos", "Estimativa de Mercado", "Custos & Breakeven", "Sobre", "Cenários Salvos"])
 
     #############################
     # Aba 1: Configuração dos Planos
@@ -72,34 +73,32 @@ def main():
         st.session_state["plan_prices"] = plan_prices
 
     #############################
-    # Aba 2: Estimativa de Mercado (TAM & SAM + Taxa de Adoção)
+    # Aba 2: Estimativa de Mercado (TAM, SAM e Taxa de Adoção)
     #############################
     with tabs[1]:
         st.header("Estimativa de Mercado (TAM & SAM)")
-        st.write("Preencha os campos para estimar o TAM (Total Addressable Market) e o SAM (Serviceable Addressable Market) para cada cenário.")
+        st.write("Preencha os campos para estimar o TAM (Total Addressable Market) e, com a taxa de adoção, obtenha o SAM.")
 
         st.subheader("Cenário 1: LATAM enviando para os EUA")
         tam_latam_eua = st.number_input("TAM - Sellers LATAM que vendem para os EUA:", value=10000, step=100)
-        # Aqui, em vez de inserir SAM manualmente, calculamos a partir da taxa de adoção
         adoption_rate_latam = st.slider("Taxa de adoção estimada (sellers que utilizarão o hub) [%]:", 0, 100, 10)
-        # Armazena a taxa de adoção na sessão para uso posterior
         st.session_state["adoption_rate_latam"] = adoption_rate_latam
         sam_latam_eua = tam_latam_eua * (adoption_rate_latam / 100)
-        st.write(f"Com essa taxa de adoção, o SAM (sellers que utilizarão o hub) é: {int(sam_latam_eua)}")
+        st.write(f"Com essa taxa de adoção, o SAM é: {int(sam_latam_eua)}")
         st.progress(int(adoption_rate_latam))
 
         st.subheader("Cenário 2: EUA/CHINA enviando para LATAM")
         tam_eua_china_latam = st.number_input("TAM - Sellers dos EUA/CHINA que vendem para LATAM:", value=8000, step=100)
-        # Neste cenário, você pode inserir a taxa de adoção manualmente se desejar
         adoption_rate_eua_china = st.slider("Taxa de adoção estimada para esse cenário [%]:", 0, 100, 10, key="adoption_rate_eua_china")
         sam_eua_china_latam = tam_eua_china_latam * (adoption_rate_eua_china / 100)
         st.write(f"Com essa taxa de adoção, o SAM é: {int(sam_eua_china_latam)}")
         st.progress(int(adoption_rate_eua_china))
 
-        st.markdown("---")
-        st.write("Resumo dos mercados:")
-        st.write(f"**LATAM → EUA:** TAM = {tam_latam_eua}, SAM = {int(sam_latam_eua)}")
-        st.write(f"**EUA/CHINA → LATAM:** TAM = {tam_eua_china_latam}, SAM = {int(sam_eua_china_latam)}")
+        # Armazenar dados de mercado na sessão
+        st.session_state["tam_latam_eua"] = tam_latam_eua
+        st.session_state["sam_latam_eua"] = int(sam_latam_eua)
+        st.session_state["tam_eua_china_latam"] = tam_eua_china_latam
+        st.session_state["sam_eua_china_latam"] = int(sam_eua_china_latam)
 
         st.markdown("---")
         st.subheader("Share dos Planos")
@@ -107,7 +106,6 @@ def main():
         share_growth = st.number_input("Share do Plano Growth (%):", value=30.0, step=1.0, format="%.2f", key="share_growth")
         share_enterprise = st.number_input("Share do Plano Enterprise (%):", value=10.0, step=1.0, format="%.2f", key="share_enterprise")
         st.write("Shares: Starter =", share_starter, "%, Growth =", share_growth, "%, Enterprise =", share_enterprise, "%")
-        # Armazena os shares para uso posterior
         st.session_state["plan_shares"] = {
             "Starter": share_starter,
             "Growth": share_growth,
@@ -115,7 +113,7 @@ def main():
         }
 
     #############################
-    # Aba 3: Custos & Breakeven
+    # Aba 3: Custos & Breakeven (24 meses)
     #############################
     with tabs[2]:
         st.header("Custos & Breakeven (24 meses)")
@@ -131,9 +129,9 @@ def main():
         maintenance_cost = st.number_input("Custo de manutenção (R$):", value=2000.0, step=100.0, format="%.2f", key="maintenance_cost")
         maintenance_months = st.number_input("Quantidade de meses para manutenção:", value=24, step=1, key="maintenance_months")
 
-        # Limita a quantidade de meses a 24 (horizonte)
         total_cost = (sw_cost * min(sw_months, 24)) + (advisor_cost * min(advisor_months, 24)) + (maintenance_cost * min(maintenance_months, 24))
         st.write(f"Custo total projetado para 24 meses: R$ {total_cost:,.2f}")
+        st.session_state["total_cost"] = total_cost
 
         st.subheader("Projeção de Sellers e Receita")
         st.write("Preencha os parâmetros para a projeção de vendas (as vendas começam a partir de um determinado mês).")
@@ -141,17 +139,16 @@ def main():
         initial_sellers = st.number_input("Número inicial de sellers no mês de início:", value=10, step=1)
         growth_rate = st.number_input("Taxa de crescimento mensal dos sellers (%):", value=10.0, step=0.1, format="%.2f")
 
-        # Recupera os preços dos planos e os shares definidos
         plan_prices = st.session_state.get("plan_prices", {"Starter":0, "Growth":0, "Enterprise":0})
         plan_shares = st.session_state.get("plan_shares", {"Starter":60.0, "Growth":30.0, "Enterprise":10.0})
         weighted_price = (plan_prices.get("Starter",0) * (plan_shares.get("Starter",0)/100) +
                           plan_prices.get("Growth",0) * (plan_shares.get("Growth",0)/100) +
                           plan_prices.get("Enterprise",0) * (plan_shares.get("Enterprise",0)/100))
         st.write(f"Preço médio ponderado dos planos: R$ {weighted_price:,.2f}")
+        st.session_state["weighted_price"] = weighted_price
 
         st.markdown("---")
         st.write("**Simulação dos 24 meses:**")
-        # Simulação: vendedores acumulados e receita mensal
         months = list(range(1, 25))
         cumulative_sellers = []
         monthly_revenues = []
@@ -182,7 +179,6 @@ def main():
         })
         st.dataframe(df_breakeven)
 
-        # Determina o mês de breakeven (quando a receita acumulada supera o custo total)
         breakeven_month = None
         for idx, rev in enumerate(cumulative_revenues):
             if rev >= total_cost:
@@ -192,13 +188,11 @@ def main():
             st.success(f"Breakeven alcançado no mês: {breakeven_month}")
         else:
             st.warning("Breakeven não alcançado em 24 meses.")
+        st.session_state["breakeven_month"] = breakeven_month
 
-        # Exibe a barra de progresso com a taxa de adoção (obtida na aba Estimativa de Mercado)
-        adoption_rate_latam = st.session_state.get("adoption_rate_latam", 10)
-        st.write(f"Taxa de Adoção (sellers que utilizarão o hub): {adoption_rate_latam}%")
-        st.progress(int(adoption_rate_latam))
+        st.write(f"Taxa de Adoção (sellers que utilizarão o hub): {st.session_state.get('adoption_rate_latam', 10)}%")
+        st.progress(int(st.session_state.get("adoption_rate_latam", 10)))
 
-        # Gráfico de Receita Acumulada x Custo Total
         fig, ax = plt.subplots()
         ax.plot(months, cumulative_revenues, label="Receita Acumulada")
         ax.hlines(total_cost, xmin=1, xmax=24, colors='r', linestyles='dashed', label="Custo Total")
@@ -215,10 +209,67 @@ def main():
         st.header("Sobre")
         st.write(
             "Este sistema foi desenvolvido para auxiliar na criação de um business plan para um hub de marketplace crossborder.\n\n"
-            "Você pode configurar planos de cobrança com variáveis ajustáveis, estimar o mercado (TAM e SAM com share dos planos e taxa de adoção) e "
-            "analisar os custos operacionais junto com a projeção do número de sellers necessário para atingir o breakeven em 24 meses."
+            "Você pode configurar planos de cobrança com variáveis ajustáveis, estimar o mercado (TAM, SAM com taxa de adoção e share dos planos) e "
+            "analisar os custos operacionais e o breakeven da operação em 24 meses."
         )
+
+    #############################
+    # Aba 5: Cenários Salvos
+    #############################
+    with tabs[4]:
+        st.header("Cenários Salvos")
+        st.write("Salve o cenário atual com um nome para consulta futura.")
+
+        scenario_name = st.text_input("Nome do Cenário")
+        if st.button("Salvar Cenário"):
+            scenario_data = {
+                "nome": scenario_name,
+                "plan_prices": st.session_state.get("plan_prices", {}),
+                "market": {
+                    "TAM_LATAM_EUA": st.session_state.get("tam_latam_eua"),
+                    "SAM_LATAM_EUA": st.session_state.get("sam_latam_eua"),
+                    "TAM_EUA_CHINA_LATAM": st.session_state.get("tam_eua_china_latam"),
+                    "SAM_EUA_CHINA_LATAM": st.session_state.get("sam_eua_china_latam"),
+                    "Taxa Adoção LATAM": st.session_state.get("adoption_rate_latam"),
+                    "Taxa Adoção EUA/CHINA": st.session_state.get("adoption_rate_eua_china"),
+                    "Plan Shares": st.session_state.get("plan_shares")
+                },
+                "financial": {
+                    "Custo Total": st.session_state.get("total_cost"),
+                    "Breakeven Mês": st.session_state.get("breakeven_month"),
+                    "Preço Médio Ponderado": st.session_state.get("weighted_price")
+                }
+            }
+            scenarios_file = "saved_scenarios.json"
+            if os.path.exists(scenarios_file):
+                with open(scenarios_file, "r") as f:
+                    saved_scenarios = json.load(f)
+            else:
+                saved_scenarios = {"scenarios": []}
+            saved_scenarios["scenarios"].append(scenario_data)
+            with open(scenarios_file, "w") as f:
+                json.dump(saved_scenarios, f, indent=4)
+            st.success(f"Cenário '{scenario_name}' salvo com sucesso!")
+
+        st.markdown("---")
+        st.header("Lista de Cenários Salvos")
+        scenarios_file = "saved_scenarios.json"
+        if os.path.exists(scenarios_file):
+            with open(scenarios_file, "r") as f:
+                saved_scenarios = json.load(f)
+            if saved_scenarios["scenarios"]:
+                for sc in saved_scenarios["scenarios"]:
+                    st.subheader(sc["nome"])
+                    st.write("**Planos:**", sc.get("plan_prices", {}))
+                    st.write("**Market:**", sc.get("market", {}))
+                    st.write("**Financial:**", sc.get("financial", {}))
+                    st.markdown("---")
+            else:
+                st.info("Nenhum cenário salvo ainda.")
+        else:
+            st.info("Nenhum cenário salvo ainda.")
 
 if __name__ == '__main__':
     main()
+
 
