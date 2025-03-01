@@ -138,16 +138,27 @@ def main():
         st.write("Insira os custos operacionais e projete o número de sellers necessário para cobrir os custos em 24 meses.")
 
         st.subheader("Custos Operacionais (24 meses)")
+        # Custos de aquisição SW
         sw_cost = st.number_input("Custos de aquisição SW (R$):", value=5000.0, step=100.0, format="%.2f", key="sw_cost")
         sw_months = st.number_input("Meses para custo SW:", value=12, step=1, key="sw_months")
-        
+        sw_start = st.number_input("Mês de início para custo SW:", value=1, min_value=1, max_value=24, step=1, key="sw_start")
+
+        # Custos Advisor
         advisor_cost = st.number_input("Custos Advisor (R$):", value=3000.0, step=100.0, format="%.2f", key="advisor_cost")
         advisor_months = st.number_input("Meses para Advisor:", value=12, step=1, key="advisor_months")
-        
+        advisor_start = st.number_input("Mês de início para Advisor:", value=1, min_value=1, max_value=24, step=1, key="advisor_start")
+
+        # Custo de manutenção
         maintenance_cost = st.number_input("Custo de manutenção (R$):", value=2000.0, step=100.0, format="%.2f", key="maintenance_cost")
         maintenance_months = st.number_input("Meses para manutenção:", value=24, step=1, key="maintenance_months")
+        maintenance_start = st.number_input("Mês de início para manutenção:", value=1, min_value=1, max_value=24, step=1, key="maintenance_start")
 
-        total_cost = (sw_cost * min(sw_months, 24)) + (advisor_cost * min(advisor_months, 24)) + (maintenance_cost * min(maintenance_months, 24))
+        # Calcula os meses efetivos para cada custo
+        effective_sw_months = max(0, min(sw_months, 24 - sw_start + 1))
+        effective_advisor_months = max(0, min(advisor_months, 24 - advisor_start + 1))
+        effective_maintenance_months = max(0, min(maintenance_months, 24 - maintenance_start + 1))
+
+        total_cost = (sw_cost * effective_sw_months) + (advisor_cost * effective_advisor_months) + (maintenance_cost * effective_maintenance_months)
         st.write(f"Custo total projetado para 24 meses: R$ {total_cost:,.2f}")
         st.session_state["total_cost"] = total_cost
 
@@ -227,14 +238,16 @@ def main():
         st.header("Sobre")
         st.write(
             "Este sistema foi desenvolvido para auxiliar na criação de um business plan para um hub de marketplace crossborder.\n\n"
-            "Você pode configurar planos de cobrança com variáveis ajustáveis, estimar o mercado e analisar os custos operacionais "
-            "junto com a projeção do número de sellers necessário para atingir o breakeven em 24 meses.\n\n"
+            "Você pode configurar planos de cobrança com variáveis ajustáveis, estimar o mercado (TAM, SAM com taxa de adoção e share dos planos) e "
+            "analisar os custos operacionais e o breakeven da operação em 24 meses.\n\n"
             "Racional para estimativa de mercado:\n"
             "- **Cenário 1 (LATAM → EUA):** Consideramos um TAM de 500.000 sellers na América Latina. "
             "Utilizando uma taxa de adoção conservadora de 1%, o SAM (sellers que efetivamente utilizariam o hub) seria de aproximadamente 5.000 sellers.\n\n"
             "- **Cenário 2 (EUA/CHINA → LATAM):** Consideramos um TAM de 100.000 sellers dos EUA/CHINA para o mercado LATAM. "
             "Com uma taxa de adoção conservadora de 1%, o SAM seria de aproximadamente 1.000 sellers.\n\n"
-            "Esses números foram adotados para uma visão mais pessimista, considerando barreiras operacionais, logísticas e regulatórias."
+            "Esses números foram adotados para uma visão mais pessimista, considerando barreiras operacionais, logísticas e regulatórias.\n\n"
+            "Para os custos, além do valor e da quantidade de meses, foi considerada a data de início de cada custo, "
+            "de forma que o custo só seja aplicado a partir do mês especificado."
         )
 
     #############################
