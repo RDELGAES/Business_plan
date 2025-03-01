@@ -8,7 +8,7 @@ def main():
     st.title("Business Plan - Hub de Marketplace Crossborder")
     st.write("Configure os planos, estime o mercado, analise os custos, o breakeven e salve seus cenários.")
 
-    # Criação das abas (5 abas: 1: Planos, 2: Mercado, 3: Custos & Breakeven, 4: Sobre, 5: Cenários Salvos)
+    # Criação das abas
     tabs = st.tabs(["Configuração dos Planos", "Estimativa de Mercado", "Custos & Breakeven", "Sobre", "Cenários Salvos"])
 
     #############################
@@ -17,34 +17,44 @@ def main():
     with tabs[0]:
         st.header("Configuração dos Planos")
         st.write(
-            "Defina as variáveis de cada plano. Os campos opcionais (Número de Pedidos, Ticket Médio, "
-            "Percentual da Venda e Preço por Pedido) serão usados para compor o pricing."
+            "Defina as variáveis de cada plano. O preço será calculado como Taxa Fixa + maior entre: "
+            "Preço por Pedido (Número de Pedidos × Preço por Pedido) ou Percentual da Venda (Número de Pedidos × Ticket Médio × Percentual/100)."
         )
         plan_names = ["Starter", "Growth", "Enterprise"]
         plan_data = {}
 
+        # Valores padrão exemplares com base na sugestão:
+        defaults = {
+            "Starter": {"Taxa Fixa": 100.0, "Número de SKUs": 50, "Marketplaces Integrados": 1,
+                        "Número de Pedidos/Mês": 100, "Ticket Médio": 100.0, "Percentual Venda": 1.5, "Preço por Pedido": 2.0},
+            "Growth": {"Taxa Fixa": 400.0, "Número de SKUs": 100, "Marketplaces Integrados": 3,
+                       "Número de Pedidos/Mês": 200, "Ticket Médio": 200.0, "Percentual Venda": 2.0, "Preço por Pedido": 3.0},
+            "Enterprise": {"Taxa Fixa": 1200.0, "Número de SKUs": 200, "Marketplaces Integrados": 5,
+                           "Número de Pedidos/Mês": 500, "Ticket Médio": 300.0, "Percentual Venda": 3.0, "Preço por Pedido": 5.0}
+        }
+
         for plan in plan_names:
             st.subheader(f"Plano {plan}")
             fixed_fee = st.number_input(
-                f"Taxa Fixa ({plan}) [em R$]", value=100.0, step=10.0, format="%.2f", key=f"{plan}_fixed"
+                f"Taxa Fixa ({plan}) [em R$]", value=defaults[plan]["Taxa Fixa"], step=10.0, format="%.2f", key=f"{plan}_fixed"
             )
             num_skus = st.number_input(
-                f"Número de SKUs Permitidos ({plan})", value=50, step=1, key=f"{plan}_skus"
+                f"Número de SKUs Permitidos ({plan})", value=defaults[plan]["Número de SKUs"], step=1, key=f"{plan}_skus"
             )
             num_marketplaces = st.number_input(
-                f"Número de Marketplaces Integrados ({plan})", value=2, step=1, key=f"{plan}_marketplaces"
+                f"Número de Marketplaces Integrados ({plan})", value=defaults[plan]["Marketplaces Integrados"], step=1, key=f"{plan}_marketplaces"
             )
             num_orders = st.number_input(
-                f"Número de Pedidos por Mês ({plan}) (opcional)", value=0, step=1, key=f"{plan}_orders"
+                f"Número de Pedidos por Mês ({plan})", value=defaults[plan]["Número de Pedidos/Mês"], step=1, key=f"{plan}_orders"
             )
             avg_ticket = st.number_input(
-                f"Ticket Médio do Carrinho ({plan}) (opcional) [em R$]", value=0.0, step=10.0, format="%.2f", key=f"{plan}_ticket"
+                f"Ticket Médio do Carrinho ({plan}) [em R$]", value=defaults[plan]["Ticket Médio"], step=10.0, format="%.2f", key=f"{plan}_ticket"
             )
             sale_percentage = st.number_input(
-                f"Percentual da Venda por Pedido ({plan}) (opcional) [%]", value=0.0, step=1.0, format="%.2f", key=f"{plan}_percentage"
+                f"Percentual da Venda por Pedido ({plan}) [%]", value=defaults[plan]["Percentual Venda"], step=0.1, format="%.2f", key=f"{plan}_percentage"
             )
             order_price = st.number_input(
-                f"Preço por Pedido ({plan}) (opcional) [em R$]", value=0.0, step=10.0, format="%.2f", key=f"{plan}_order_price"
+                f"Preço por Pedido ({plan}) [em R$]", value=defaults[plan]["Preço por Pedido"], step=0.5, format="%.2f", key=f"{plan}_order_price"
             )
 
             plan_data[plan] = {
@@ -69,36 +79,38 @@ def main():
             plan_prices[plan] = price
             st.write(f"Preço calculado para o plano {plan}: R$ {price:,.2f}")
         
-        # Armazena os preços na sessão para uso posterior
         st.session_state["plan_prices"] = plan_prices
 
     #############################
-    # Aba 2: Estimativa de Mercado (TAM, SAM e Taxa de Adoção)
+    # Aba 2: Estimativa de Mercado (TAM, SAM e Taxa de Adoção + Share dos Planos)
     #############################
     with tabs[1]:
         st.header("Estimativa de Mercado (TAM & SAM)")
         st.write("Preencha os campos para estimar o TAM (Total Addressable Market) e, com a taxa de adoção, obtenha o SAM.")
 
         st.subheader("Cenário 1: LATAM enviando para os EUA")
-        tam_latam_eua = st.number_input("TAM - Sellers LATAM que vendem para os EUA:", value=10000, step=100)
-        adoption_rate_latam = st.slider("Taxa de adoção estimada (sellers que utilizarão o hub) [%]:", 0, 100, 10)
+        # Valor conservador para LATAM: 500.000 sellers
+        tam_latam_eua = st.number_input("TAM - Sellers LATAM que vendem para os EUA:", value=500000, step=10000)
+        # Taxa de adoção conservadora: 1%
+        adoption_rate_latam = st.slider("Taxa de adoção (sellers que utilizarão o hub) [%]:", 0, 100, 1)
         st.session_state["adoption_rate_latam"] = adoption_rate_latam
         sam_latam_eua = tam_latam_eua * (adoption_rate_latam / 100)
-        st.write(f"Com essa taxa de adoção, o SAM é: {int(sam_latam_eua)}")
+        st.write(f"Com essa taxa, o SAM é: {int(sam_latam_eua)}")
         st.progress(int(adoption_rate_latam))
 
         st.subheader("Cenário 2: EUA/CHINA enviando para LATAM")
-        tam_eua_china_latam = st.number_input("TAM - Sellers dos EUA/CHINA que vendem para LATAM:", value=8000, step=100)
-        adoption_rate_eua_china = st.slider("Taxa de adoção estimada para esse cenário [%]:", 0, 100, 10, key="adoption_rate_eua_china")
+        # Valor conservador para EUA/CHINA: 100.000 sellers
+        tam_eua_china_latam = st.number_input("TAM - Sellers dos EUA/CHINA que vendem para LATAM:", value=100000, step=1000)
+        # Taxa de adoção conservadora: 1%
+        adoption_rate_eua_china = st.slider("Taxa de adoção para esse cenário [%]:", 0, 100, 1, key="adoption_rate_eua_china")
         sam_eua_china_latam = tam_eua_china_latam * (adoption_rate_eua_china / 100)
-        st.write(f"Com essa taxa de adoção, o SAM é: {int(sam_eua_china_latam)}")
+        st.write(f"Com essa taxa, o SAM é: {int(sam_eua_china_latam)}")
         st.progress(int(adoption_rate_eua_china))
 
-        # Armazenar dados de mercado na sessão
-        st.session_state["tam_latam_eua"] = tam_latam_eua
-        st.session_state["sam_latam_eua"] = int(sam_latam_eua)
-        st.session_state["tam_eua_china_latam"] = tam_eua_china_latam
-        st.session_state["sam_eua_china_latam"] = int(sam_eua_china_latam)
+        st.markdown("---")
+        st.write("Resumo dos mercados:")
+        st.write(f"**LATAM → EUA:** TAM = {tam_latam_eua}, SAM = {int(sam_latam_eua)}")
+        st.write(f"**EUA/CHINA → LATAM:** TAM = {tam_eua_china_latam}, SAM = {int(sam_eua_china_latam)}")
 
         st.markdown("---")
         st.subheader("Share dos Planos")
@@ -112,6 +124,12 @@ def main():
             "Enterprise": share_enterprise
         }
 
+        # Armazena os valores de mercado na sessão para uso posterior
+        st.session_state["tam_latam_eua"] = tam_latam_eua
+        st.session_state["sam_latam_eua"] = int(sam_latam_eua)
+        st.session_state["tam_eua_china_latam"] = tam_eua_china_latam
+        st.session_state["sam_eua_china_latam"] = int(sam_eua_china_latam)
+
     #############################
     # Aba 3: Custos & Breakeven (24 meses)
     #############################
@@ -121,13 +139,13 @@ def main():
 
         st.subheader("Custos Operacionais (24 meses)")
         sw_cost = st.number_input("Custos de aquisição SW (R$):", value=5000.0, step=100.0, format="%.2f", key="sw_cost")
-        sw_months = st.number_input("Quantidade de meses para custo SW:", value=12, step=1, key="sw_months")
+        sw_months = st.number_input("Meses para custo SW:", value=12, step=1, key="sw_months")
         
         advisor_cost = st.number_input("Custos Advisor (R$):", value=3000.0, step=100.0, format="%.2f", key="advisor_cost")
-        advisor_months = st.number_input("Quantidade de meses para Advisor:", value=12, step=1, key="advisor_months")
+        advisor_months = st.number_input("Meses para Advisor:", value=12, step=1, key="advisor_months")
         
         maintenance_cost = st.number_input("Custo de manutenção (R$):", value=2000.0, step=100.0, format="%.2f", key="maintenance_cost")
-        maintenance_months = st.number_input("Quantidade de meses para manutenção:", value=24, step=1, key="maintenance_months")
+        maintenance_months = st.number_input("Meses para manutenção:", value=24, step=1, key="maintenance_months")
 
         total_cost = (sw_cost * min(sw_months, 24)) + (advisor_cost * min(advisor_months, 24)) + (maintenance_cost * min(maintenance_months, 24))
         st.write(f"Custo total projetado para 24 meses: R$ {total_cost:,.2f}")
@@ -190,8 +208,8 @@ def main():
             st.warning("Breakeven não alcançado em 24 meses.")
         st.session_state["breakeven_month"] = breakeven_month
 
-        st.write(f"Taxa de Adoção (sellers que utilizarão o hub): {st.session_state.get('adoption_rate_latam', 10)}%")
-        st.progress(int(st.session_state.get("adoption_rate_latam", 10)))
+        st.write(f"Taxa de Adoção (sellers que utilizarão o hub): {st.session_state.get('adoption_rate_latam', 1)}%")
+        st.progress(int(st.session_state.get("adoption_rate_latam", 1)))
 
         fig, ax = plt.subplots()
         ax.plot(months, cumulative_revenues, label="Receita Acumulada")
@@ -209,8 +227,14 @@ def main():
         st.header("Sobre")
         st.write(
             "Este sistema foi desenvolvido para auxiliar na criação de um business plan para um hub de marketplace crossborder.\n\n"
-            "Você pode configurar planos de cobrança com variáveis ajustáveis, estimar o mercado (TAM, SAM com taxa de adoção e share dos planos) e "
-            "analisar os custos operacionais e o breakeven da operação em 24 meses."
+            "Você pode configurar planos de cobrança com variáveis ajustáveis, estimar o mercado e analisar os custos operacionais "
+            "junto com a projeção do número de sellers necessário para atingir o breakeven em 24 meses.\n\n"
+            "Racional para estimativa de mercado:\n"
+            "- **Cenário 1 (LATAM → EUA):** Consideramos um TAM de 500.000 sellers na América Latina. "
+            "Utilizando uma taxa de adoção conservadora de 1%, o SAM (sellers que efetivamente utilizariam o hub) seria de aproximadamente 5.000 sellers.\n\n"
+            "- **Cenário 2 (EUA/CHINA → LATAM):** Consideramos um TAM de 100.000 sellers dos EUA/CHINA para o mercado LATAM. "
+            "Com uma taxa de adoção conservadora de 1%, o SAM seria de aproximadamente 1.000 sellers.\n\n"
+            "Esses números foram adotados para uma visão mais pessimista, considerando barreiras operacionais, logísticas e regulatórias."
         )
 
     #############################
@@ -271,5 +295,8 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+
 
 
