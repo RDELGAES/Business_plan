@@ -67,14 +67,18 @@ def main():
         st.header("Estimativa de Mercado (TAM & SAM)")
         st.write("Preencha os campos para estimar o TAM (Total Addressable Market) e, com a taxa de adoção, obtenha o SAM.")
         st.subheader("Cenário 1: LATAM enviando para os EUA")
+        # Valor conservador para LATAM: 500.000 sellers
         tam_latam_eua = st.number_input("TAM - Sellers LATAM que vendem para os EUA:", value=500000, step=10000)
+        # Taxa de adoção conservadora: 1%
         adoption_rate_latam = st.slider("Taxa de adoção (sellers que utilizarão o hub) [%]:", 0, 100, 1)
         st.session_state["adoption_rate_latam"] = adoption_rate_latam
         sam_latam_eua = tam_latam_eua * (adoption_rate_latam / 100)
         st.write(f"Com essa taxa, o SAM é: {int(sam_latam_eua)}")
         st.progress(int(adoption_rate_latam))
         st.subheader("Cenário 2: EUA/CHINA enviando para LATAM")
+        # Valor conservador para EUA/CHINA: 100.000 sellers
         tam_eua_china_latam = st.number_input("TAM - Sellers dos EUA/CHINA que vendem para LATAM:", value=100000, step=1000)
+        # Taxa de adoção conservadora: 1%
         adoption_rate_eua_china = st.slider("Taxa de adoção para esse cenário [%]:", 0, 100, 1, key="adoption_rate_eua_china")
         sam_eua_china_latam = tam_eua_china_latam * (adoption_rate_eua_china / 100)
         st.write(f"Com essa taxa, o SAM é: {int(sam_eua_china_latam)}")
@@ -94,6 +98,7 @@ def main():
             "Growth": share_growth,
             "Enterprise": share_enterprise
         }
+        # Armazena os valores de mercado na sessão para uso posterior
         st.session_state["tam_latam_eua"] = tam_latam_eua
         st.session_state["sam_latam_eua"] = int(sam_latam_eua)
         st.session_state["tam_eua_china_latam"] = tam_eua_china_latam
@@ -105,58 +110,34 @@ def main():
     with tabs[2]:
         st.header("Custos & Breakeven (24 meses)")
         st.write("Insira os custos operacionais e projete o número de sellers necessário para cobrir os custos em 24 meses.")
-
-        st.subheader("Custos Operacionais Fixos (24 meses)")
-        # Custos fixos tradicionais
+        st.subheader("Custos Operacionais (24 meses)")
+        # Custos fixos com início definido:
         sw_cost = st.number_input("Custos de aquisição SW (R$):", value=5000.0, step=100.0, format="%.2f", key="sw_cost")
         sw_months = st.number_input("Meses para custo SW:", value=12, step=1, key="sw_months")
         sw_start = st.number_input("Mês de início para custo SW:", value=1, min_value=1, max_value=24, step=1, key="sw_start")
-
         advisor_cost = st.number_input("Custos Advisor (R$):", value=3000.0, step=100.0, format="%.2f", key="advisor_cost")
         advisor_months = st.number_input("Meses para Advisor:", value=12, step=1, key="advisor_months")
         advisor_start = st.number_input("Mês de início para Advisor:", value=1, min_value=1, max_value=24, step=1, key="advisor_start")
-
         maintenance_cost = st.number_input("Custo de manutenção (R$):", value=2000.0, step=100.0, format="%.2f", key="maintenance_cost")
         maintenance_months = st.number_input("Meses para manutenção:", value=24, step=1, key="maintenance_months")
         maintenance_start = st.number_input("Mês de início para manutenção:", value=1, min_value=1, max_value=24, step=1, key="maintenance_start")
-
         effective_sw_months = max(0, min(sw_months, 24 - sw_start + 1))
         effective_advisor_months = max(0, min(advisor_months, 24 - advisor_start + 1))
         effective_maintenance_months = max(0, min(maintenance_months, 24 - maintenance_start + 1))
-
-        fixed_total_cost = (sw_cost * effective_sw_months) + (advisor_cost * effective_advisor_months) + (maintenance_cost * effective_maintenance_months)
-
+        # Custos personalizados
         st.subheader("Custos Personalizados")
-        st.write("Adicione custos personalizados, informando o nome, valor, quantidade de meses e o mês de início da cobrança.")
-        if "custom_costs" not in st.session_state:
-            st.session_state["custom_costs"] = []
-
-        custom_name = st.text_input("Nome do Custo", key="custom_name")
-        custom_value = st.number_input("Valor do Custo (R$):", value=0.0, step=10.0, format="%.2f", key="custom_value")
-        custom_months = st.number_input("Quantidade de Meses para esse custo:", value=1, step=1, key="custom_months")
-        custom_start = st.number_input("Mês de início para esse custo:", value=1, min_value=1, max_value=24, step=1, key="custom_start")
-
-        if st.button("Adicionar Custo Personalizado"):
-            effective_custom = max(0, min(custom_months, 24 - custom_start + 1))
-            st.session_state["custom_costs"].append({
-                "nome": custom_name,
-                "valor": custom_value,
-                "meses": effective_custom,
-                "inicio": custom_start
-            })
-            st.success(f"Custo '{custom_name}' adicionado!")
-
-        if st.session_state["custom_costs"]:
-            st.write("Custos Personalizados Adicionados:")
-            df_custom = pd.DataFrame(st.session_state["custom_costs"])
-            st.dataframe(df_custom)
-            total_custom = df_custom["valor"].multiply(df_custom["meses"]).sum()
-        else:
-            total_custom = 0.0
-
-        st.write(f"Custo total de Custos Personalizados: R$ {total_custom:,.2f}")
-
-        total_cost = fixed_total_cost + total_custom
+        num_custom = st.number_input("Quantidade de custos personalizados:", value=0, step=1)
+        custom_costs = []
+        for i in range(num_custom):
+            st.markdown(f"**Custo Personalizado {i+1}**")
+            name = st.text_input(f"Nome do custo {i+1}:", key=f"custom_name_{i}")
+            value = st.number_input(f"Valor (R$) do custo {i+1}:", value=0.0, step=100.0, format="%.2f", key=f"custom_value_{i}")
+            months = st.number_input(f"Meses de cobrança do custo {i+1}:", value=1, step=1, key=f"custom_months_{i}")
+            start = st.number_input(f"Mês de início para o custo {i+1}:", value=1, min_value=1, max_value=24, step=1, key=f"custom_start_{i}")
+            effective_months = max(0, min(months, 24 - start + 1))
+            custom_costs.append(value * effective_months)
+        total_custom_cost = sum(custom_costs)
+        total_cost = (sw_cost * effective_sw_months) + (advisor_cost * effective_advisor_months) + (maintenance_cost * effective_maintenance_months) + total_custom_cost
         st.write(f"Custo total projetado para 24 meses: R$ {total_cost:,.2f}")
         st.session_state["total_cost"] = total_cost
 
@@ -213,9 +194,9 @@ def main():
         else:
             st.warning("Breakeven não alcançado em 24 meses.")
         st.session_state["breakeven_month"] = breakeven_month
-
         st.write(f"Taxa de Adoção (sellers que utilizarão o hub): {st.session_state.get('adoption_rate_latam', 1)}%")
         st.progress(int(st.session_state.get("adoption_rate_latam", 1)))
+        st.write(f"Número total de sellers ativos ao final de 24 meses: {total_sellers}")
         fig, ax = plt.subplots()
         ax.plot(months, cumulative_revenues, label="Receita Acumulada")
         ax.hlines(total_cost, xmin=1, xmax=24, colors='r', linestyles='dashed', label="Custo Total")
@@ -240,7 +221,8 @@ def main():
             "- **Cenário 2 (EUA/CHINA → LATAM):** Consideramos um TAM de 100.000 sellers dos EUA/CHINA para o mercado LATAM. "
             "Com uma taxa de adoção conservadora de 1%, o SAM seria de aproximadamente 1.000 sellers.\n\n"
             "Para os custos, além do valor e da quantidade de meses, foi considerada a data de início de cada custo, "
-            "de forma que o custo só seja aplicado a partir do mês especificado. Você também pode adicionar custos personalizados com nome, valor, meses e mês de início."
+            "de forma que o custo só seja aplicado a partir do mês especificado.\n\n"
+            "Nos resultados da simulação, é exibida a quantidade total de sellers ativos ao final dos 24 meses."
         )
 
     #############################
@@ -267,6 +249,9 @@ def main():
                     "Custo Total": st.session_state.get("total_cost"),
                     "Breakeven Mês": st.session_state.get("breakeven_month"),
                     "Preço Médio Ponderado": st.session_state.get("weighted_price")
+                },
+                "resultado": {
+                    "Sellers Ativos (24 meses)": total_sellers
                 }
             }
             scenarios_file = "saved_scenarios.json"
@@ -291,6 +276,7 @@ def main():
                     st.write("**Planos:**", sc.get("plan_prices", {}))
                     st.write("**Market:**", sc.get("market", {}))
                     st.write("**Financial:**", sc.get("financial", {}))
+                    st.write("**Resultado:**", sc.get("resultado", {}))
                     st.markdown("---")
             else:
                 st.info("Nenhum cenário salvo ainda.")
