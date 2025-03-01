@@ -1,23 +1,24 @@
 import streamlit as st
 import pandas as pd
+import matplotlib.pyplot as plt
 from modules import pricing, market_estimation
 
 def main():
     st.title("Business Plan - Hub de Marketplace Crossborder")
-    st.write("Configure os planos, estime as receitas e analise o payback do investimento.")
+    st.write("Configure os planos, estime o mercado, analise os custos e o breakeven da operação.")
 
     # Criação das abas
-    tabs = st.tabs(["Configuração dos Planos", "Estimativa de Mercado", "Análise de Payback", "Sobre"])
+    tabs = st.tabs(["Configuração dos Planos", "Estimativa de Mercado", "Custos & Breakeven", "Sobre"])
 
+    #############################
     # Aba 1: Configuração dos Planos
+    #############################
     with tabs[0]:
-        st.header("Planos de Cobrança")
+        st.header("Configuração dos Planos")
         st.write(
-            "Ajuste as variáveis de cada plano. Além dos parâmetros básicos, os campos opcionais "
-            "permitirão complementar o modelo de cobrança, como número de pedidos, ticket médio, "
-            "percentual da venda e preço por pedido."
+            "Defina as variáveis de cada plano. Os campos opcionais (Número de Pedidos, Ticket Médio, "
+            "Percentual da Venda e Preço por Pedido) serão usados para compor o pricing."
         )
-
         plan_names = ["Starter", "Growth", "Enterprise"]
         plan_data = {}
 
@@ -61,173 +62,161 @@ def main():
         st.json(plan_data)
 
         st.subheader("Cálculo do Preço dos Planos")
+        plan_prices = {}
         for plan in plan_names:
-            calculated_price = pricing.calculate_plan_price(plan_data[plan])
-            st.write(f"Preço calculado para o plano {plan}: R$ {calculated_price:,.2f}")
-
-    # Aba 2: Estimativa de Mercado e Receita
-    with tabs[1]:
-        st.header("Estimativa de Market Share e Receita")
-        st.write(
-            "Utilize os campos abaixo para estimar o potencial de receita em dois cenários:\n\n"
-            "**1. LATAM para EUA:** Sellers LATAM vendendo para os EUA (ex.: via Amazon, eBay, etc.)\n"
-            "**2. EUA para LATAM:** Sellers dos EUA vendendo para a LATAM (ex.: via Mercado Livre, Magalu, B2W, Amazon)"
-        )
-        
-        # Cenário 1: LATAM para EUA
-        st.subheader("Cenário 1: LATAM para EUA")
-        total_sellers_latam = st.number_input(
-            "Número total de sellers LATAM que vendem para os EUA:", value=5000, step=100
-        )
-        adoption_rate_latam = st.slider(
-            "Taxa de adoção estimada (sellers que utilizarão o hub) [%]:", 0, 100, 10
-        )
-        st.write("**Estimativa de pedidos por canal:**")
-        orders_amazon = st.number_input("Pedidos mensais via Amazon:", value=0, step=10)
-        orders_ebay = st.number_input("Pedidos mensais via eBay:", value=0, step=10)
-        orders_outros = st.number_input("Pedidos mensais via outros canais:", value=0, step=10)
-        
-        avg_order_value_latam = st.number_input(
-            "Ticket Médio dos pedidos (LATAM -> EUA) [em R$]:", value=150.0, step=10.0, format="%.2f"
-        )
-        
-        potencial_receita_latam = market_estimation.estimate_revenue(total_sellers_latam, adoption_rate_latam, avg_order_value_latam)
-        st.write(f"Receita potencial (LATAM para EUA): R$ {potencial_receita_latam:,.2f} por período")
-        
-        st.markdown("---")
-        
-        # Cenário 2: EUA para LATAM
-        st.subheader("Cenário 2: EUA para LATAM")
-        total_sellers_eua = st.number_input(
-            "Número total de sellers dos EUA que vendem para LATAM:", value=3000, step=100
-        )
-        adoption_rate_eua = st.slider(
-            "Taxa de adoção estimada (sellers que utilizarão o hub) [%]:", 0, 100, 10, key="adoption_eua"
-        )
-        st.write("**Estimativa de pedidos por canal:**")
-        orders_mercado_livre = st.number_input("Pedidos mensais via Mercado Livre:", value=0, step=10)
-        orders_magalu = st.number_input("Pedidos mensais via Magalu:", value=0, step=10)
-        orders_b2w = st.number_input("Pedidos mensais via B2W:", value=0, step=10)
-        orders_amazon_latam = st.number_input("Pedidos mensais via Amazon (LATAM):", value=0, step=10)
-        
-        avg_order_value_eua = st.number_input(
-            "Ticket Médio dos pedidos (EUA -> LATAM) [em R$]:", value=120.0, step=10.0, format="%.2f"
-        )
-        
-        potencial_receita_eua = market_estimation.estimate_revenue(total_sellers_eua, adoption_rate_eua, avg_order_value_eua)
-        st.write(f"Receita potencial (EUA para LATAM): R$ {potencial_receita_eua:,.2f} por período")
-        
-        st.markdown("---")
-        
-        st.subheader("Receita de Assinatura dos Planos")
-        st.write("Defina o percentual de adesão para cada plano (a soma deve ser igual a 100%).")
-        weight_starter = st.number_input("Peso do Plano Starter [%]:", value=40.0, step=1.0, format="%.2f")
-        weight_growth = st.number_input("Peso do Plano Growth [%]:", value=40.0, step=1.0, format="%.2f")
-        weight_enterprise = st.number_input("Peso do Plano Enterprise [%]:", value=20.0, step=1.0, format="%.2f")
-        
-        total_subscription_revenue = 0
-        total_adopters = total_sellers_latam * (adoption_rate_latam / 100)
-        for plan in ["Starter", "Growth", "Enterprise"]:
-            weight = {"Starter": weight_starter, "Growth": weight_growth, "Enterprise": weight_enterprise}[plan]
             price = pricing.calculate_plan_price(plan_data[plan])
-            plan_revenue = total_adopters * (weight / 100) * price
-            total_subscription_revenue += plan_revenue
-            st.write(f"Receita do plano {plan}: R$ {plan_revenue:,.2f}")
+            plan_prices[plan] = price
+            st.write(f"Preço calculado para o plano {plan}: R$ {price:,.2f}")
         
-        st.write(f"Receita total de assinatura dos planos: R$ {total_subscription_revenue:,.2f} por período")
-        
-        st.markdown("### Racional das Estimativas")
-        st.write("""
-        **Cenário LATAM -> EUA:**
-        - **Número total de sellers:** Quantidade de sellers LATAM que exportam para os EUA.
-        - **Taxa de adoção:** Percentual desses sellers que aderirão ao hub.
-        - **Ticket Médio:** Valor médio de cada pedido.
-        - **Pedidos por canal:** Distribuição dos pedidos entre os canais.
-        
-        **Cenário EUA -> LATAM:**
-        - **Número total de sellers:** Sellers dos EUA que exportam para a LATAM.
-        - **Taxa de adoção:** Percentual de sellers que utilizarão o hub.
-        - **Ticket Médio:** Valor médio de cada pedido.
-        - **Pedidos por canal:** Distribuição dos pedidos entre os canais.
-        
-        **Receita de Assinatura:**
-        - **Peso dos Planos:** Percentual de sellers que optarão por cada plano, usado para estimar a receita com base no preço calculado.
-        """)
-        
-        # Armazena a receita de assinatura na sessão para uso na análise de payback
-        st.session_state["subscription_revenue"] = total_subscription_revenue
+        # Armazena os preços na sessão para uso posterior
+        st.session_state["plan_prices"] = plan_prices
 
-    # Aba 3: Análise de Payback
+    #############################
+    # Aba 2: Estimativa de Mercado (TAM & SAM + Taxa de Adoção)
+    #############################
+    with tabs[1]:
+        st.header("Estimativa de Mercado (TAM & SAM)")
+        st.write("Preencha os campos para estimar o TAM (Total Addressable Market) e o SAM (Serviceable Addressable Market) para cada cenário.")
+
+        st.subheader("Cenário 1: LATAM enviando para os EUA")
+        tam_latam_eua = st.number_input("TAM - Sellers LATAM que vendem para os EUA:", value=10000, step=100)
+        # Aqui, em vez de inserir SAM manualmente, calculamos a partir da taxa de adoção
+        adoption_rate_latam = st.slider("Taxa de adoção estimada (sellers que utilizarão o hub) [%]:", 0, 100, 10)
+        # Armazena a taxa de adoção na sessão para uso posterior
+        st.session_state["adoption_rate_latam"] = adoption_rate_latam
+        sam_latam_eua = tam_latam_eua * (adoption_rate_latam / 100)
+        st.write(f"Com essa taxa de adoção, o SAM (sellers que utilizarão o hub) é: {int(sam_latam_eua)}")
+        st.progress(int(adoption_rate_latam))
+
+        st.subheader("Cenário 2: EUA/CHINA enviando para LATAM")
+        tam_eua_china_latam = st.number_input("TAM - Sellers dos EUA/CHINA que vendem para LATAM:", value=8000, step=100)
+        # Neste cenário, você pode inserir a taxa de adoção manualmente se desejar
+        adoption_rate_eua_china = st.slider("Taxa de adoção estimada para esse cenário [%]:", 0, 100, 10, key="adoption_rate_eua_china")
+        sam_eua_china_latam = tam_eua_china_latam * (adoption_rate_eua_china / 100)
+        st.write(f"Com essa taxa de adoção, o SAM é: {int(sam_eua_china_latam)}")
+        st.progress(int(adoption_rate_eua_china))
+
+        st.markdown("---")
+        st.write("Resumo dos mercados:")
+        st.write(f"**LATAM → EUA:** TAM = {tam_latam_eua}, SAM = {int(sam_latam_eua)}")
+        st.write(f"**EUA/CHINA → LATAM:** TAM = {tam_eua_china_latam}, SAM = {int(sam_eua_china_latam)}")
+
+        st.markdown("---")
+        st.subheader("Share dos Planos")
+        share_starter = st.number_input("Share do Plano Starter (%):", value=60.0, step=1.0, format="%.2f", key="share_starter")
+        share_growth = st.number_input("Share do Plano Growth (%):", value=30.0, step=1.0, format="%.2f", key="share_growth")
+        share_enterprise = st.number_input("Share do Plano Enterprise (%):", value=10.0, step=1.0, format="%.2f", key="share_enterprise")
+        st.write("Shares: Starter =", share_starter, "%, Growth =", share_growth, "%, Enterprise =", share_enterprise, "%")
+        # Armazena os shares para uso posterior
+        st.session_state["plan_shares"] = {
+            "Starter": share_starter,
+            "Growth": share_growth,
+            "Enterprise": share_enterprise
+        }
+
+    #############################
+    # Aba 3: Custos & Breakeven
+    #############################
     with tabs[2]:
-        st.header("Análise de Payback")
-        st.write("Esta análise utiliza as receitas projetadas dos planos para estimar em quantos meses o investimento será recuperado.")
+        st.header("Custos & Breakeven (24 meses)")
+        st.write("Insira os custos operacionais e projete o número de sellers necessário para cobrir os custos em 24 meses.")
 
-        # Obter o investimento via CSV ou entrada manual
-        uploaded_file = st.file_uploader("Faça o upload do CSV com os dados do investimento (coluna 'Investimento')", type="csv")
-        if uploaded_file is not None:
-            df_invest = pd.read_csv(uploaded_file)
-            st.write("Dados do Investimento:")
-            st.dataframe(df_invest)
-            if "Investimento" in df_invest.columns:
-                total_investment = df_invest["Investimento"].sum()
-                st.write("Investimento Total: R$", total_investment)
-            else:
-                st.error("A coluna 'Investimento' não foi encontrada no CSV.")
-                total_investment = st.number_input("Insira o investimento total manualmente (R$):", value=0.0)
-        else:
-            st.info("Faça o upload do arquivo CSV ou insira o investimento manualmente.")
-            total_investment = st.number_input("Insira o investimento total (R$):", value=0.0)
-
-        # Utiliza a receita projetada dos planos (caso já esteja calculada)
-        if "subscription_revenue" in st.session_state:
-            monthly_revenue = st.session_state["subscription_revenue"]
-            st.write(f"Receita mensal projetada (dos planos): R$ {monthly_revenue:,.2f}")
-        else:
-            st.info("Receita de assinatura não disponível. Insira o valor manualmente.")
-            monthly_revenue = st.number_input("Receita Recorrente Mensal (R$):", value=50000.0, step=1000.0, format="%.2f")
+        st.subheader("Custos Operacionais (24 meses)")
+        sw_cost = st.number_input("Custos de aquisição SW (R$):", value=5000.0, step=100.0, format="%.2f", key="sw_cost")
+        sw_months = st.number_input("Quantidade de meses para custo SW:", value=12, step=1, key="sw_months")
         
-        # Permite definir uma taxa de crescimento (opcional)
-        growth_rate = st.number_input("Taxa de Crescimento Mensal (%) (Ex: 0 para sem crescimento):", value=0.0, step=0.1, format="%.2f")
+        advisor_cost = st.number_input("Custos Advisor (R$):", value=3000.0, step=100.0, format="%.2f", key="advisor_cost")
+        advisor_months = st.number_input("Quantidade de meses para Advisor:", value=12, step=1, key="advisor_months")
+        
+        maintenance_cost = st.number_input("Custo de manutenção (R$):", value=2000.0, step=100.0, format="%.2f", key="maintenance_cost")
+        maintenance_months = st.number_input("Quantidade de meses para manutenção:", value=24, step=1, key="maintenance_months")
 
-        # Botão para calcular o payback com base nas receitas projetadas
-        if st.button("Calcular Payback"):
-            months = []
-            monthly_revenues = []
-            cumulative_revenues = []
+        # Limita a quantidade de meses a 24 (horizonte)
+        total_cost = (sw_cost * min(sw_months, 24)) + (advisor_cost * min(advisor_months, 24)) + (maintenance_cost * min(maintenance_months, 24))
+        st.write(f"Custo total projetado para 24 meses: R$ {total_cost:,.2f}")
 
-            cumulative = -total_investment  # Começamos com o valor negativo do investimento
-            month = 0
-            # Simula até 60 meses ou até que o acumulado seja >= 0
-            while month < 60 and cumulative < 0:
-                months.append(month)
-                if month == 0:
-                    current_revenue = monthly_revenue
-                else:
-                    current_revenue = monthly_revenues[-1] * (1 + growth_rate / 100)
-                monthly_revenues.append(current_revenue)
-                cumulative += current_revenue
-                cumulative_revenues.append(cumulative)
-                month += 1
+        st.subheader("Projeção de Sellers e Receita")
+        st.write("Preencha os parâmetros para a projeção de vendas (as vendas começam a partir de um determinado mês).")
+        start_month = st.number_input("Mês de início das vendas:", value=7, step=1)
+        initial_sellers = st.number_input("Número inicial de sellers no mês de início:", value=10, step=1)
+        growth_rate = st.number_input("Taxa de crescimento mensal dos sellers (%):", value=10.0, step=0.1, format="%.2f")
 
-            df_payback = pd.DataFrame({
-                "Mês": months,
-                "Receita Mensal (R$)": monthly_revenues,
-                "Receita Acumulada (R$)": cumulative_revenues
-            })
-            st.dataframe(df_payback)
+        # Recupera os preços dos planos e os shares definidos
+        plan_prices = st.session_state.get("plan_prices", {"Starter":0, "Growth":0, "Enterprise":0})
+        plan_shares = st.session_state.get("plan_shares", {"Starter":60.0, "Growth":30.0, "Enterprise":10.0})
+        weighted_price = (plan_prices.get("Starter",0) * (plan_shares.get("Starter",0)/100) +
+                          plan_prices.get("Growth",0) * (plan_shares.get("Growth",0)/100) +
+                          plan_prices.get("Enterprise",0) * (plan_shares.get("Enterprise",0)/100))
+        st.write(f"Preço médio ponderado dos planos: R$ {weighted_price:,.2f}")
 
-            if cumulative >= 0:
-                payback_month = df_payback[df_payback["Receita Acumulada (R$)"] >= 0].iloc[0]["Mês"]
-                st.success(f"Payback alcançado no mês: {int(payback_month)}")
+        st.markdown("---")
+        st.write("**Simulação dos 24 meses:**")
+        # Simulação: vendedores acumulados e receita mensal
+        months = list(range(1, 25))
+        cumulative_sellers = []
+        monthly_revenues = []
+        cumulative_revenues = []
+        total_sellers = 0
+
+        for m in months:
+            if m < start_month:
+                new_sellers = 0
+            elif m == start_month:
+                new_sellers = initial_sellers
             else:
-                st.warning("Payback não alcançado em 60 meses.")
+                new_sellers = initial_sellers * ((1 + growth_rate/100) ** (m - start_month))
+            total_sellers += new_sellers
+            cumulative_sellers.append(total_sellers)
+            monthly_rev = total_sellers * weighted_price
+            monthly_revenues.append(monthly_rev)
+            if m == 1:
+                cumulative_revenues.append(monthly_rev)
+            else:
+                cumulative_revenues.append(cumulative_revenues[-1] + monthly_rev)
 
+        df_breakeven = pd.DataFrame({
+            "Mês": months,
+            "Vendedores Acumulados": cumulative_sellers,
+            "Receita Mensal (R$)": monthly_revenues,
+            "Receita Acumulada (R$)": cumulative_revenues
+        })
+        st.dataframe(df_breakeven)
+
+        # Determina o mês de breakeven (quando a receita acumulada supera o custo total)
+        breakeven_month = None
+        for idx, rev in enumerate(cumulative_revenues):
+            if rev >= total_cost:
+                breakeven_month = months[idx]
+                break
+        if breakeven_month:
+            st.success(f"Breakeven alcançado no mês: {breakeven_month}")
+        else:
+            st.warning("Breakeven não alcançado em 24 meses.")
+
+        # Exibe a barra de progresso com a taxa de adoção (obtida na aba Estimativa de Mercado)
+        adoption_rate_latam = st.session_state.get("adoption_rate_latam", 10)
+        st.write(f"Taxa de Adoção (sellers que utilizarão o hub): {adoption_rate_latam}%")
+        st.progress(int(adoption_rate_latam))
+
+        # Gráfico de Receita Acumulada x Custo Total
+        fig, ax = plt.subplots()
+        ax.plot(months, cumulative_revenues, label="Receita Acumulada")
+        ax.hlines(total_cost, xmin=1, xmax=24, colors='r', linestyles='dashed', label="Custo Total")
+        ax.set_xlabel("Mês")
+        ax.set_ylabel("Valor (R$)")
+        ax.set_title("Receita Acumulada vs. Custo Total (24 meses)")
+        ax.legend()
+        st.pyplot(fig)
+
+    #############################
     # Aba 4: Sobre
+    #############################
     with tabs[3]:
         st.header("Sobre")
         st.write(
             "Este sistema foi desenvolvido para auxiliar na criação de um business plan para um hub de marketplace crossborder.\n\n"
-            "Você pode configurar planos de cobrança com variáveis ajustáveis, estimar o potencial de receita em diferentes cenários e analisar o payback do investimento utilizando as receitas projetadas dos planos."
+            "Você pode configurar planos de cobrança com variáveis ajustáveis, estimar o mercado (TAM e SAM com share dos planos e taxa de adoção) e "
+            "analisar os custos operacionais junto com a projeção do número de sellers necessário para atingir o breakeven em 24 meses."
         )
 
 if __name__ == '__main__':

@@ -8,3 +8,4 @@ def estimate_revenue(total_sellers, adoption_rate, avg_order_value):
     return (total_sellers * (adoption_rate / 100)) * avg_order_value
 
 
+

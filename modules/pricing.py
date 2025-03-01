@@ -11,15 +11,11 @@ def calculate_plan_price(plan):
     avg_ticket = plan.get("Ticket Médio", 0)
     sale_percentage = plan.get("Percentual Venda", 0)
     
-    extra_order = 0
-    if num_orders > 0 and order_price > 0:
-        extra_order = num_orders * order_price
-
-    extra_sale = 0
-    if num_orders > 0 and avg_ticket > 0 and sale_percentage > 0:
-        extra_sale = num_orders * avg_ticket * (sale_percentage / 100)
+    extra_order = num_orders * order_price if num_orders > 0 and order_price > 0 else 0
+    extra_sale = num_orders * avg_ticket * (sale_percentage / 100) if num_orders > 0 and avg_ticket > 0 and sale_percentage > 0 else 0
     
     return base + extra_order + extra_sale
+
 
 
 
